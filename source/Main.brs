@@ -1,161 +1,122 @@
-'*************************************************************
-'** Hello World example 
-'** Copyright (c) 2015 Roku, Inc.  All rights reserved.
-'** Use of the Roku Platform is subject to the Roku SDK License Agreement:
-'** https://docs.roku.com/doc/developersdk/en-us
-'*************************************************************
+function regset(key as String, value as String) as Boolean
+    reg = CreateObject("roRegistrySection", "app")
+    return reg.Write(key, value)
+end function
 
+function regget(key as String, defaultValue = "" as String) as String
+    reg = CreateObject("roRegistrySection", "app")
+    val = reg.Read(key)
+    if val = invalid or val = "" then
+        return defaultValue
+    else
+        return val
+    end if
+end function
 
-' sub updateMovie()
-'     phone_port = CreateObject("roMessagePort")
+function regdet(key as String) as Boolean
+    reg = CreateObject("roRegistrySection", "app")
+    return reg.Delete(key)
+end function
 
-'     request = CreateObject("roUrlTransfer")
-'     request.setMessagePort(phone_port)
-'     request.setUrl("http://192.168.1.100:8080/status")
+function EncodeKey(name as String) as String
+    byteArray = CreateObject("roByteArray")
+    byteArray.FromAsciiString(name)
+    base64 = byteArray.ToBase64String()
+    ? "Base 64: " base64
+    return base64
+end function
 
-'     currentVersion = 0
+sub handleCommand(info as Dynamic)
+    if info.DoesExist("command")
+        command = info.command
 
+        if command = "pair" and info.DoesExist("friendlyName")
+            m.paired = info.friendlyName
+            m.regkey = EncodeKey(m.paired)+"::"
+            m.pairLabel.text = "Currently Paired: " + m.paired
 
+            lastMovieUri = regget(m.regkey+"lastMovie","<unset>")
+            lastMovieName = regget(m.regkey+"lastMovieName","<unset>")
 
-'     if request.AsyncGetToString()
-'         while true
-'             msg = wait(0,phone_port)
-'             if type(msg) = "roUrlEvent"
-'                 code = msg.getResponseCode()
-'                 if code = 200
-'                     response = msg.GetString()
-'                     data = ParseJson(response)
+            if lastMovieUri <> "<unset>" and lastMovieName <> "<unset>"
+                m.player.control = "stop"
+                m.player.content = invalid
+                m.content.url = lastMovieUri
+                m.player.content = m.content
+                m.player.control = "play"
 
-'                     if data <> invalid and data.status = "ready" and data.version <> currentVersion
-'                         request.setUrl("http://192.168.1.100:8080/data")
-'                         if request.AsyncGetToString()
-'                             while true
-'                                 msg = wait(0,phone_port)
-'                                 if type(msg) = "roUrlEvent"
-'                                     code = msg.getResponseCode()
-'                                     if code = 200
-'                                         response = msg.GetString()
-'                                         data = ParseJson(response)
+                m.playingLabel.text = "Playing: " + lastMovieName
+            end if 
+        end if
 
-'                                         if data <> invalid and data.status = "ok" and data.uri <> invalid
-'                                             m.player.control = "stop"
-'                                             content = CreateObject("roSGNode", "ContentNode")
-'                                             content.streamformat = "mp4"
-'                                             content.url = data.uri
-'                                             m.player.content = content
-'                                             m.player.control = "play"
-                                            
-'                                         endif
-'                                         exit while
-'                                     else
-'                                         ? code 
-'                                         exit while
-'                                     end if
+        ? info 
+        ? command
+        ? info.DoesExist("movieUri")
 
-'                                 else if msg = invalid
-'                                     ? "Was an invalid message and nothing lol"
-'                                     exit while
-'                                 end if
-'                             end while
-'                         else
-'                         end if
-'                     endif
-'                     exit while
-'                 else
-'                     ? code 
-'                     exit while
-'                 end if
+        if command = "upload" and info.DoesExist("movieUri") and info.DoesExist("movieName")
+            uri = info.movieUri
+            name = info.movieName
+            print "Command Upload, MovieUri: " uri
+            m.player.control = "stop"
+            m.player.content = invalid
+            m.content.url = uri
+            m.player.content = m.content
+            m.player.control = "play"
+            m.playingLabel.text = "Playing: " + name
 
-'             else if msg = invalid
-'                 ? "Was an invalid message and nothing lol"
-'                 exit while
-'             end if
-'         end while
-'     else
-'     end if
-' end sub
-
-sub updateMovie()
-    ' reuse the existing request and port
-    m.request.setMessagePort(m.phone_port)
-    m.request.setUrl("http://192.168.1.100:8080/status")
-
-    if m.request.AsyncGetToString()
-        while true
-            msg = wait(0, m.phone_port)
-            if type(msg) = "roUrlEvent" and msg.getResponseCode() = 200
-                data = ParseJson(msg.GetString())
-                if data <> invalid and data.status = "ready" and data.version <> m.currentVersion
-                    m.currentVersion = data.version
-                    ' fetch actual data
-                    m.request.setUrl("http://192.168.1.100:8080/data")
-                    if m.request.AsyncGetToString()
-                        while true
-                            msg2 = wait(0, m.phone_port)
-                            if type(msg2) = "roUrlEvent" and msg2.getResponseCode() = 200
-                                data2 = ParseJson(msg2.GetString())
-                                ?"Data2 Uri ";data2.uri
-                                ?"Data2 Status ";data2.status
-                                if data2 <> invalid and data2.status = "ok" and data2.uri <> invalid
-                                    m.player.control = "stop"
-                                    content = CreateObject("roSGNode", "ContentNode")
-                                    content.streamformat = "mp4"
-                                    content.url = data2.uri
-                                    m.player.content = content
-                                    m.player.control = "play"
-                                end if
-                                exit while
-                            end if
-                        end while
-                    end if
-                end if
-                exit while
-            end if
-        end while
+            regset(m.regkey+"lastMovie",uri)
+            regset(m.regkey+"lastMovieName",name)
+        end if
     end if
 end sub
 
-' sub Main()
-'     screen = CreateObject("roSGScreen")
-'     m.port = CreateObject("roMessagePort")
-'     screen.setMessagePort(m.port)
-
-'     scene = screen.CreateScene("HelloWorld")
-'     screen.show()
-
-'     m.player = scene.findNode("player")
-
-'     m.phone_port = CreateObject("roMessagePort")
-'     m.request = CreateObject("roUrlTransfer")
-'     m.currentVersion = 0
-    
-
-'     while true
-'         msg = wait(20, m.port)
-'         ' updateMovie()
-
-'         ?"Video state: "; m.player.state
-'         if type(msg) = "roSGScreenEvent" and msg.isScreenClosed() return
-'     end while
-' end sub
-
-sub Main()
+sub Main(args as Dynamic)
     screen = CreateObject("roSGScreen")
     m.port = CreateObject("roMessagePort")
     screen.setMessagePort(m.port)
 
     scene = screen.CreateScene("HelloWorld")
-    scene.messagePort = m.port
-
     screen.show()
+
+    m.player = scene.findNode("player")
+
+    m.paired = "<unset>"
+    m.pairlabel = scene.findNode("pairLabel")
+    m.pairLabel.text = "Currently Paired: " + regget("lastPaired","None")
+    m.playingLabel = scene.findNode("playingLabel")
+    m.playingLabel.text = ""
+
+    m.content = CreateObject("roSGNode", "ContentNode")
+    m.content.streamformat = "hls"
+    
+    lastMovie = regget("lastMovie","<unset>")
+    if lastMovie <> "<unset>"
+        m.content.url = lastMovie
+        m.player.content = m.content
+        m.player.control = "play"
+    end if
+
+    inputObject = CreateObject("roInput")
+    inputObject.setMessagePort(m.port)
+
+    if args <> invalid
+        handleCommand(args)
+    endif
 
     while true
         msg = wait(0, m.port)
-        if type(msg) = "roSGScreenEvent" and msg.isScreenClosed() return
-    end while
-endsub
+        msgType = type(msg)
 
-function onKeyEvent(key as String, press as boolean) as boolean
-    ? "Key ";key
-    ? "Press"; press
-endfunction
+        if msgType = "roSGScreenEvent" and msg.isScreenClosed()
+            return
+        else if msgType = "roInputEvent"
+            inputData = msg.getInfo()
+            handleCommand(inputData)
+        else if msgType = "roVideoPlayerEvent"
+            if msg.isPlaybackDone()
+                regdet("lastPaired")
+                regdet("lastMovie")
+            end if
+        end if
+    end while
+end sub

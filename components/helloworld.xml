@@ -3,17 +3,9 @@
   </interface>
   <children>
     <Video id="player" height="720" width="1280"/>
+    <Label id="pairLabel" height="720" width="1280" translation="[0,0]" vertAlign="bottom" horizAlign="right" text="Currently Paired: None"></Label>
+    <Label id="playingLabel" height="720" width="1280" translation="[0,0]" vertAlign="bottom" horizAlign="left" text=""></Label>
   </children>
 
-  <script type="text/brightscript">
-  <![CDATA[
-
-
-    sub init()
-        m.player = m.top.findNode("player")
-        m.player.setFocus(true)
-        ? m.port
-    end sub
-  ]]>
-  </script>
+  <script type="text/brightscript" uri="pkg:/source/HelloWorld.brs"/>
 </component>
